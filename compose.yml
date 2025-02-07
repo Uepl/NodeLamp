@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+
+  php:
+    build: ./database   # Use PHP Dockerfile from ./database
+    container_name: php
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - ./database/php:/var/www/html
+    depends_on:
+      database:
+        condition: service_healthy
+
+  database:
+    image: mysql:8.0
+    container_name: database
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: test
+      MYSQL_PASSWORD: test
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+
+  frontend:
+    build: ./frontend/angular
+    container_name: frontend
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend/angular:/app
+      - ./frontend/angular/node_modules:/usr/src/app/node_modules
+    command: npm start -- --host 0.0.0.0 --poll=2000
+    environment:  
+      - CHOKIDAR_USEPOLLING=1
+    depends_on:
+      database:
+        condition: service_healthy
+
+  backend:
+    build: ./backend
+    container_name: backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend:/app
+    environment:
+      DATABASE_URL: mysql://test:test@database:3306/mydb
+    depends_on:
+      database:
+        condition: service_healthy
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    restart: always
+    links:
+      - database
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: database
+      PMA_USER: test
+      PMA_PASSWORD: test
+    depends_on:
+      database:
+        condition: service_healthy
+
+volumes:
+  db_data:
+    driver: local
+  node_modules:
