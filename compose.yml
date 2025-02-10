@@ -78,6 +78,22 @@ services:
       database:
         condition: service_healthy
 
+  prisma-studio:
+    links:
+      - database
+    depends_on:
+      - database
+    container_name: prisma-studio
+    ports:
+      - '5555:5555'
+    build:
+      context: ./backend/Docker
+    environment:
+      - DATABASE_URL=mysql://test:test@database:3306/mydb  
+    volumes:
+      - ./backend/prisma:/app/prisma
+
+
 volumes:
   db_data:
     driver: local
